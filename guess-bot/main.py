@@ -18,7 +18,7 @@ from discord.ext import tasks
 # Add points
 # Add bonuses for guessing multiple in a row
 
-BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.4K_rur8qREegxMYwdqIJfqfNceM"
+BOT_TOKEN = "insert_bot_token"
 
 if os.path.exists("sync_times.json") != True:
     file = open("sync_times.json","w")
