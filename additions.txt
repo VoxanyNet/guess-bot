@@ -1,0 +1,34 @@
+When a guess command is sent, we send the prompt.
+There are 4 possible users to choose from, these users are sampled from all server json data, not just current users
+Choices selected with reactions
+Multiple prompts can be sent.
+We store all prompts in a list.
+Each element is the list is a dictionary containing the prompt's message ID and the correct answer and when the prompt was sent.
+We periodically check through all our prompts to see if there are answers.
+If a prompt was sent over a certain length of time, we edit the prompt to say "Expired"
+If a user answers correctly, we edit the answer to remove the censoring and celebrate the win.
+Award points
+
+Consider having different difficulties.
+Harder questions are from longer ago.
+Harder questions might also be shorter.
+
+
+Real or Fake?
+User must determine if a message is real or AI generated
+
+Already used.
+We might want to move already guessed messages elsewhere
+Prompts that expire aren't thrown away.
+
+Do we want to modify the source JSON?
+Keep copy of original?
+Do we want to store fake messages in the json file?
+
+Stats command
+Shows the number of messages already successfully guessed and which ones are still unanswered
+
+Pre-filter json data?
+
+Is there a way to load messages on the fly from Discord
+Or do we need to rely on pre-exported data?
