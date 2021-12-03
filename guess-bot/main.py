@@ -42,15 +42,20 @@ def load_messages(data_path):
 
     for json_file in os.listdir(data_path):
 
+        if ".json" not in json_file:
+            continue
+            # This is here because I needed to put a .gitignore file in this directory
+            # I was very confused why my JSON wasn't loading
+            # It was trying to load a .gitignore
+
         guild_id = json_file.split(".")[0]
 
         print(guild_id)
 
         # For every json file in the server_data folder, load
         # data then add to server_data dictionary
-        file = open(f"{data_path}/{json_file}","r")
-        data = json.load(file)
-        file.close()
+        with open(f"{data_path}/{json_file}","r") as file:
+            data = json.load(file)
 
         message_count = len(data["active_messages"])
 
@@ -155,8 +160,8 @@ def filter_json(raw_directory):
 
                 filtered_data["active_messages"].append(filtered_message)
 
-                if message["author"]["name"] not in filtered_data["valid_users"]:
-                    filtered_data["valid_users"].append(message["author"]["name"])
+                if filtered_message["author"]["name"] not in filtered_data["valid_users"]:
+                    filtered_data["valid_users"].append(filtered_message["author"]["name"])
 
         # Prints out the results of the filtering
         buffer = ""
@@ -180,7 +185,7 @@ def filter_json(raw_directory):
     print(f"Finished filtering in {elapsed_time} seconds")
 
 def download_messages(channel_id,token,output_directory):
-    exit_code = os.system(f"dotnet libraries/chat_exporter/DiscordChatExporter.Cli.dll export -b -t '{token}' -c {channel_id} -f Json -o '{output_directory}/%g.json'")
+    exit_code = os.system(f"dotnet libraries/chat_exporter/DiscordChatExporter.Cli.dll export -t {token} -b -c {channel_id} -f Json -o {output_directory}/%g.json")
 
     print(f"Finished downloading messages for {channel_id}")
 
@@ -191,6 +196,8 @@ async def on_ready():
     filter_json("raw_data")
 
     load_messages("server_data")
+
+    print("All done!")
 
 @bot.command()
 async def guss(ctx):
@@ -205,6 +212,11 @@ async def sync(ctx):
 
     # We need the guild id as a str because json doesnt support int keys
     guild_id = str(ctx.guild.id)
+
+    if os.path.exists("sync_times.json") != True:
+        file = open("sync_times.json","w")
+        json.dump({},file)
+        file.close()
 
     with open("sync_times.json", "r") as file:
         sync_data = json.load(file)
@@ -257,12 +269,18 @@ async def guess(ctx):
     # We use this to generate wrong answers
     users = data["valid_users"]
 
-    # Generate wrong answers
-    while len(choices) < 4: # Generate 3 wrong answers
-        random_user = random.choice(users)
+    # First we shuffle all the users so don't always get the same possible answers
+    random.shuffle(users)
 
-        if random_user not in choices:
-            choices.append(random_user)
+    for user in users:
+
+        if user in choices: # Make sure we aren't adding the correct user twice
+            continue
+
+        choices.append(user)
+
+        if len(choices) == 4: # We only want to generate up to 4 possible answers
+            break
 
     # Shuffles the list so the right answer won't always be first
     random.shuffle(choices)
@@ -278,7 +296,7 @@ async def guess(ctx):
 
     prompt_message = await ctx.send(f"Who sent:\n||Author||: {message['content']}\n\n{choices_string}\n")
 
-    for emoji in EMOJI_TABLE:
+    for emoji in EMOJI_TABLE[:len(choices)]: # We only want to add and emoji for every possible answer. So if there are only 3 possible answers we only get 3 emoji choices
         await prompt_message.add_reaction(emoji)
 
     # Saves the message in the prompts dictionary
@@ -387,8 +405,6 @@ async def prompt_checker():
                     # User guesses correctly
                     if correct_choice in guesses:
                         correct_users.append(user)
-
-                print(correct_users)
 
                 # Formats the message for message according to how many users guessed correctly
                 if len(correct_users) == 0:
