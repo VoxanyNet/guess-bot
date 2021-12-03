@@ -19,6 +19,9 @@ from discord.ext import tasks
 # Add bonuses for guessing multiple in a row
 
 BOT_TOKEN = "insert_bot_token"
+DATA_PATH = "server_data"
+BACKUP_PATH = "raw_data_backup"
+
 
 if os.path.exists("sync_times.json") != True:
     file = open("sync_times.json","w")
@@ -174,7 +177,7 @@ def filter_json(raw_directory):
             json.dump(filtered_data,file,sort_keys=True, indent=4)
 
         # Makes a backup of the original raw data
-        shutil.copyfile(f"{raw_directory}/{json_file}",f"raw_data_backup/{json_file}")
+        shutil.copyfile(f"{raw_directory}/{json_file}",f"{BACKUP_PATH}/{json_file}")
 
         # Deletes the raw data
         os.remove(f"{raw_directory}/{json_file}")
@@ -195,7 +198,7 @@ async def on_ready():
 
     filter_json("raw_data")
 
-    load_messages("server_data")
+    load_messages(DATA_PATH)
 
     print("All done!")
 
@@ -206,6 +209,27 @@ async def guss(ctx):
 @bot.command()
 async def gus(ctx):
     await ctx.send("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
+
+@bot.command()
+async def desync(ctx):
+
+    guild_id = str(ctx.guild.id)
+
+    try:
+        os.remove(f"{DATA_PATH}/{ctx.guild.id}.json")
+        os.remove(f"{BACKUP_PATH}/{ctx.guild.id}.json")
+
+        del bot.server_data[guild_id]
+
+    except FileNotFoundError:
+        await ctx.send("Could not find any message data for this server")
+
+    except:
+        await ctx.send("Failed to remove message data.\nContact Voxany#4162 for support")
+        raise
+
+    else:
+        await ctx.send("Successfully removed messsage data!")
 
 @bot.command()
 async def sync(ctx):
@@ -258,6 +282,11 @@ async def sync(ctx):
 @bot.command()
 async def guess(ctx):
     guild_id = str(ctx.guild.id)
+
+    if guild_id not in bot.server_data:
+        await ctx.send("No message data found! Sync messages with !sync")
+        return
+
     data = bot.server_data[guild_id]
 
     # Messages are pre-filtered now!
@@ -323,6 +352,8 @@ async def debug(ctx):
     await ctx.send(f"""**CTX guild ID**: {ctx.guild.id}\n
     **CTX author ID**: {ctx.message.author.id}\n""")
 
+    print(bot.server_data.keys())
+
 @tasks.loop(seconds = 5)
 async def download_checker():
 
@@ -337,7 +368,7 @@ async def download_checker():
         # We also notify the channel that the download has finished
         else:
             filter_json("raw_data")
-            load_messages("server_data")
+            load_messages(DATA_PATH)
 
             notify_channel = await bot.fetch_channel(channel_id)
 
