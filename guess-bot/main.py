@@ -8,6 +8,7 @@ import random
 import discord
 from discord.ext import commands
 from discord.ext import tasks
+import statistics
 
 
 # TODO
@@ -97,13 +98,14 @@ def filter_json(raw_directory):
         # Create stats
         for message in raw_data["messages"]:
 
-            if message["author"]["name"] not in filtered_data["stats"]:
-                filtered_data["stats"][message["author"]["name"]] = { # This is barely readable
-                    "message_count": 1
+            if message["author"]["id"] not in filtered_data["stats"]:
+                filtered_data["stats"][message["author"]["id"]] = { # This is barely readable
+                    "message_count": 1,
+                    "word_counts": {},
                 }
 
             else:
-                filtered_data["stats"][message["author"]["name"]]["message_count"] += 1 # Neither is this
+                filtered_data["stats"][message["author"]["id"]]["message_count"] += 1 # Neither is this
 
         filter_results = {
             "less than 20 messages": 0,
@@ -122,7 +124,7 @@ def filter_json(raw_directory):
             # We copy the original message so we can modify it with the filter
             filtered_message = message
 
-            if filtered_data["stats"][message["author"]["name"]]["message_count"] < 20:
+            if filtered_data["stats"][message["author"]["id"]]["message_count"] < 20:
                 filter_results["less than 20 messages"] += 1
                 filtered_message = None # We set the filtered message to none because we just want to delete it
 
@@ -209,6 +211,50 @@ async def guss(ctx):
 @bot.command()
 async def gus(ctx):
     await ctx.send("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
+
+@bot.command()
+async def stats(ctx, stat_type, argument):
+
+    user_id = str(ctx.author.id)
+    guild_id = str(ctx.guild.id)
+
+    # Create user stats object
+    user_stats = statistics.User(bot.server_data[guild_id],user_id)
+
+    match stat_type:
+        case "keyword":
+            keyword = argument
+
+            try:
+                # Try to find a cached result
+                word_count = bot.server_data[guild_id]["stats"][user_id]["word_counts"][keyword]
+                print("Found cached result")
+
+            except:
+                # If we cant find cached result, we will proccess it
+                word_count = user_stats.word_count(keyword)
+
+                # Create the statistic if it isnt there yet
+                if "word_counts" not in bot.server_data[guild_id]["stats"][user_id]:
+                    bot.server_data[guild_id]["stats"][user_id].update(
+                        {"word_counts": {}}
+                    )
+
+                    # Add the word to the "word_counts" statistic
+                bot.server_data[guild_id]["stats"][user_id]["word_counts"][keyword] = word_count
+
+            result = f"You have said '{keyword}' **{word_count}** times!"
+
+        case _:
+            result = "Invalid statistic"
+
+    # Saves server file with updated stats
+    with open(f"server_data/{guild_id}.json","w") as file:
+        json.dump(bot.server_data[guild_id],file,sort_keys=True, indent=4)
+        print("Saved new updated server data")
+
+    await ctx.send(result)
+
 
 @bot.command()
 async def desync(ctx):
@@ -463,7 +509,7 @@ async def prompt_checker():
                     json.dump(bot.server_data[guild],file,sort_keys=True, indent=4)
                     print("Saved new updated server data")
 
-                # Deletes the prompts from list of active prompts
+                # Deletes the prompt from list of active prompts
                 bot.prompts[guild].remove(prompt)
 
 prompt_checker.start()
