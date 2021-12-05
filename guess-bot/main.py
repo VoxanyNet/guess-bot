@@ -9,7 +9,7 @@ import discord
 from discord.ext import commands
 from discord.ext import tasks
 import statistics
-
+import parse
 
 # TODO
 
@@ -19,30 +19,8 @@ import statistics
 # Add points
 # Add bonuses for guessing multiple in a row
 
-BOT_TOKEN = "insert_bot_token"
-DATA_PATH = "server_data"
-BACKUP_PATH = "raw_data_backup"
-
-
-if os.path.exists("sync_times.json") != True:
-    file = open("sync_times.json","w")
-    json.dump({},file)
-    file.close()
-
-EMOJI_TABLE = [
-    "1️⃣",
-    "2️⃣",
-    "3️⃣",
-    "4️⃣"
-]
-
-bot = commands.Bot(command_prefix = "!")
-
-bot.prompts = {}
-bot.threads = {}
-
 def load_messages(data_path):
-    bot.server_data = {}
+    server_data = {}
 
     for json_file in os.listdir(data_path):
 
@@ -54,8 +32,6 @@ def load_messages(data_path):
 
         guild_id = json_file.split(".")[0]
 
-        print(guild_id)
-
         # For every json file in the server_data folder, load
         # data then add to server_data dictionary
         with open(f"{data_path}/{json_file}","r") as file:
@@ -65,143 +41,54 @@ def load_messages(data_path):
 
         print(f"Loading {guild_id}.json with {message_count} messages")
 
-        bot.server_data.update(
-            {
-                guild_id : data
-            }
-        )
-        #else:
-            #bot.server_data[guild_id].append(data)
+        server_data[guild_id] = data
 
-# This will create a new JSON file containing only filtered messages
-# It will also contain statistics about the messages
-def filter_json(raw_directory):
-
-    start_time = time.time()
-
-    # We could potentially use structural pattern matching in
-    # the future if we have more fail states
-
-    for json_file in os.listdir(raw_directory):
-
-        with open(f"{raw_directory}/{json_file}","rb") as file:
-            raw_data = json.load(file)
-
-        filtered_data = {
-            "guild_id": raw_data["guild"]["id"],
-            "stats": {},
-            "valid_users": [],
-            "active_messages": [],
-            "inactive_messages": []
-        }
-
-        # Create stats
-        for message in raw_data["messages"]:
-
-            if message["author"]["id"] not in filtered_data["stats"]:
-                filtered_data["stats"][message["author"]["id"]] = { # This is barely readable
-                    "message_count": 1,
-                    "word_counts": {},
-                }
-
-            else:
-                filtered_data["stats"][message["author"]["id"]]["message_count"] += 1 # Neither is this
-
-        filter_results = {
-            "less than 20 messages": 0,
-            "bot author": 0,
-            "deleted user": 0,
-            "link": 0,
-            "contains @": 0,
-            "command": 0,
-            "attention": 0,
-            "attachments": 0
-        }
-
-        # Removes messages that don't pass the filter
-        for count, message in enumerate(raw_data["messages"]):
-
-            # We copy the original message so we can modify it with the filter
-            filtered_message = message
-
-            if filtered_data["stats"][message["author"]["id"]]["message_count"] < 20:
-                filter_results["less than 20 messages"] += 1
-                filtered_message = None # We set the filtered message to none because we just want to delete it
-
-            elif message["author"]["isBot"] == True:
-                filter_results["bot author"] += 1
-                filtered_message = None
-
-            elif message["author"]["name"] == "Deleted User":
-                filter_results["deleted user"] += 1
-                filtered_message = None
-
-            elif "http" in message["content"]:
-                filter_results["link"] += 1
-                filtered_message = None
-
-            elif "@" in message["content"]:
-                filter_results["contains @"] += 1
-                filtered_message["content"] = message["content"].replace("@","[@]")
-
-            elif message["content"].startswith("!") or message["content"].startswith("-"):
-                filter_results["command"] += 1
-                filtered_message = None
-
-            elif message["content"].startswith("@") and message["content"].count(" ") == 0:
-                filter_results["attention"] += 1
-                filtered_message = None
-
-
-            elif message["attachments"] != []:
-                filter_results["attachments"] += 1
-                filtered_message = None
-
-            else: # Don't really need an else statement anymore as passing the filter is implicit
-                pass # This is here for readabilty. Might do something with it later
-
-            # If the message passes the filter
-            if filtered_message != None: # We don't add the filtered message to the list if we just want to delete it
-
-                filtered_data["active_messages"].append(filtered_message)
-
-                if filtered_message["author"]["name"] not in filtered_data["valid_users"]:
-                    filtered_data["valid_users"].append(filtered_message["author"]["name"])
-
-        # Prints out the results of the filtering
-        buffer = ""
-        for issue, count in filter_results.items():
-            buffer += f"{issue}: {count}\n"
-        print(buffer)
-
-        # Dumps the filtered data
-        with open(f"server_data/{filtered_data['guild_id']}.json","w") as file:
-            json.dump(filtered_data,file,sort_keys=True, indent=4)
-
-        # Makes a backup of the original raw data
-        shutil.copyfile(f"{raw_directory}/{json_file}",f"{BACKUP_PATH}/{json_file}")
-
-        # Deletes the raw data
-        os.remove(f"{raw_directory}/{json_file}")
-
-    # Calculates the time taken to complete filtering
-    elapsed_time = time.time() - start_time
-
-    print(f"Finished filtering in {elapsed_time} seconds")
+    return server_data
 
 def download_messages(channel_id,token,output_directory):
     exit_code = os.system(f"dotnet libraries/chat_exporter/DiscordChatExporter.Cli.dll export -t {token} -b -c {channel_id} -f Json -o {output_directory}/%g.json")
 
     print(f"Finished downloading messages for {channel_id}")
 
+BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.28ujyytcdm0wUPfI0D2i-Ucszj0"
+DATA_PATH = "server_data"
+BACKUP_PATH = "raw_data_backup"
+EMOJI_TABLE = [
+    "1️⃣",
+    "2️⃣",
+    "3️⃣",
+    "4️⃣"
+]
+
+# STARTUP ROUTINE
+if os.path.exists("sync_times.json") != True:
+    file = open("sync_times.json","w")
+    json.dump({},file)
+    file.close()
+
+# Change this to be more modular
+parse.filter_json("raw_data",BACKUP_PATH)
+
+bot = commands.Bot(command_prefix = "!")
+
+bot.server_data = load_messages(DATA_PATH)
+bot.prompts = {}
+bot.threads = {}
+
+time_start = time.time()
+for guild_id, guild_data in bot.server_data.items():
+    if "stats" not in guild_data:
+        bot.server_data[guild_id]["stats"] = parse.generate_stats(guild_data)
+
+        with open(f"{DATA_PATH}/{guild_id}.json","w") as file:
+            json.dump(bot.server_data[guild_id],file, sort_keys = True, indent = 4)
+
+time_elapsed = time.time() - time_start
+
+print(f"Took {time_elapsed} seconds to generate stats")
+
 @bot.event
 async def on_ready():
-    print("Loading JSON data")
-
-    filter_json("raw_data")
-
-    load_messages(DATA_PATH)
-
     print("All done!")
 
 @bot.command()
@@ -219,39 +106,16 @@ async def stats(ctx, stat_type, argument):
     guild_id = str(ctx.guild.id)
 
     # Create user stats object
-    user_stats = statistics.User(bot.server_data[guild_id],user_id)
+    user_stats = statistics.User(bot.server_data[guild_id]["stats"][user_id])
 
     match stat_type:
         case "keyword":
             keyword = argument
 
-            try:
-                # Try to find a cached result
-                word_count = bot.server_data[guild_id]["stats"][user_id]["word_counts"][keyword]
-                print("Found cached result")
-
-            except:
-                # If we cant find cached result, we will proccess it
-                word_count = user_stats.word_count(keyword)
-
-                # Create the statistic if it isnt there yet
-                if "word_counts" not in bot.server_data[guild_id]["stats"][user_id]:
-                    bot.server_data[guild_id]["stats"][user_id].update(
-                        {"word_counts": {}}
-                    )
-
-                    # Add the word to the "word_counts" statistic
-                bot.server_data[guild_id]["stats"][user_id]["word_counts"][keyword] = word_count
-
-            result = f"You have said '{keyword}' **{word_count}** times!"
+            result = user_stats.word_count(keyword)
 
         case _:
             result = "Invalid statistic"
-
-    # Saves server file with updated stats
-    with open(f"server_data/{guild_id}.json","w") as file:
-        json.dump(bot.server_data[guild_id],file,sort_keys=True, indent=4)
-        print("Saved new updated server data")
 
     await ctx.send(result)
 

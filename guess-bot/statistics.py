@@ -1,22 +1,18 @@
+# This module works to translate the back-end
+# JSON stats to human readable outputs
+
 class User:
-    def __init__(self, guild_data, user_id):
-
-        self.user_messages = []
-
-        for message in guild_data["active_messages"]:
-            if message["author"]["id"] == user_id:
-                self.user_messages.append(message)
-
-        # Later this will just go through the raw data instead
-        for message in guild_data["inactive_messages"]:
-            if message["author"]["id"] == user_id:
-                self.user_messages.append(message)
+    def __init__(self, user_stats):
+        self.user_stats = user_stats
 
     def word_count(self,keyword):
-        count = 0
+        word_usage = self.user_stats["word_usage"]
 
-        for message in self.user_messages:
-            if keyword in message["content"]:
-                count += 1
+        if keyword not in word_usage:
+            result = f"You have never said __{keyword}__."
 
-        return count
+        else:
+            count = word_usage[keyword]
+            result = f"You have said __{keyword}__ **{count}** times!"
+
+        return result
