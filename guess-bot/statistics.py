@@ -5,6 +5,13 @@ class User:
     def __init__(self, user_stats):
         self.user_stats = user_stats
 
+    def message_count(self):
+        message_count = self.user_stats["message_count"]
+
+        result = f"You have sent {message_count} messages."
+
+        return result
+        
     def word_count(self,keyword):
         word_usage = self.user_stats["word_usage"]
 

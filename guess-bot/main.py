@@ -5,6 +5,7 @@ import shutil
 import time
 import datetime
 import random
+from collections import defaultdictionary
 import discord
 from discord.ext import commands
 from discord.ext import tasks
@@ -72,7 +73,7 @@ parse.filter_json("raw_data",BACKUP_PATH)
 bot = commands.Bot(command_prefix = "!")
 
 bot.server_data = load_messages(DATA_PATH)
-bot.prompts = {}
+bot.prompts = defaultdictionary(list)
 bot.threads = {}
 
 time_start = time.time()
@@ -91,6 +92,11 @@ print(f"Took {time_elapsed} seconds to generate stats")
 async def on_ready():
     print("All done!")
 
+@bot.command()
+async def get_user(ctx,user_id):
+    name = await bot.fetch_user(int(user_id))
+
+    await ctx.send(name)
 @bot.command()
 async def guss(ctx):
     await ctx.send("https://static.wikia.nocookie.net/breakingbad/images/a/ab/BCS_S3_GusFringe.jpg/revision/latest?cb=20170327185354")
@@ -231,11 +237,14 @@ async def guess(ctx):
     choices_string = ""
 
     for number, choice in enumerate(choices):
-        choices_string += f"{EMOJI_TABLE[number]}: {choice}\n"
+        # Converts user ID to the name
+        user = bot.fetch_user(choice)
+
+        choices_string += f"{EMOJI_TABLE[number]}: {user.name}\n"
 
     prompt_message = await ctx.send(f"Who sent:\n||Author||: {message['content']}\n\n{choices_string}\n")
 
-    for emoji in EMOJI_TABLE[:len(choices)]: # We only want to add and emoji for every possible answer. So if there are only 3 possible answers we only get 3 emoji choices
+    for emoji in EMOJI_TABLE[:len(choices)]: # We only want to add an emoji for every possible answer. So if there are only 3 possible answers we only get 3 emoji choices
         await prompt_message.add_reaction(emoji)
 
     # Saves the message in the prompts dictionary
@@ -247,15 +256,6 @@ async def guess(ctx):
                 "choices": choices
             }
         )
-
-    else: # Create list of prompts if it doesnt yet exist for this guild
-        bot.prompts[guild_id] = [
-            {
-                "prompt_message": prompt_message,
-                "guess_message": message,
-                "choices": choices
-            }
-        ]
 
 @bot.command()
 async def debug(ctx):
@@ -277,8 +277,16 @@ async def download_checker():
         # If the download has finished we can filter and load the new data
         # We also notify the channel that the download has finished
         else:
-            filter_json("raw_data")
-            load_messages(DATA_PATH)
+            filter_json("raw_data",DATA_PATH)
+            bot.server_data = load_messages(DATA_PATH)
+
+            for guild_id, guild_data in bot.server_data.items():
+                if "stats" not in guild_data:
+                    bot.server_data[guild_id]["stats"] = parse.generate_stats(guild_data)
+
+                    with open(f"{DATA_PATH}/{guild_id}.json","w") as file:
+                        json.dump(bot.server_data[guild_id],file, sort_keys = True, indent = 4)
+
 
             notify_channel = await bot.fetch_channel(channel_id)
 

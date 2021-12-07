@@ -99,8 +99,8 @@ def filter_json(raw_directory,backup_path):
 
                 filtered_data["active_messages"].append(filtered_message)
 
-                if filtered_message["author"]["name"] not in filtered_data["valid_users"]:
-                    filtered_data["valid_users"].append(filtered_message["author"]["name"])
+                if filtered_message["author"]["id"] not in filtered_data["valid_users"]:
+                    filtered_data["valid_users"].append(filtered_message["author"]["id"])
 
         # Prints out the results of the filtering
         buffer = ""
