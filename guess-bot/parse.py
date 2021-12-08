@@ -1,6 +1,7 @@
 # This module is responsible for filtering messages
 # and generating user stats
 import os
+import copy
 import shutil
 import time
 import json
@@ -128,7 +129,7 @@ def filter_json(raw_directory,backup_path):
 def generate_stats(guild_data):
     # We want to generate more general stats
 
-    stats = defaultdict(lambda: DEFAULT_STATS)
+    stats = defaultdict(lambda: copy.copy(DEFAULT_STATS))
 
     guild_messages = guild_data["active_messages"] + guild_data["inactive_messages"]
 

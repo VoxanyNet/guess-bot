@@ -5,7 +5,7 @@ import shutil
 import time
 import datetime
 import random
-from collections import defaultdictionary
+from collections import defaultdict
 import discord
 from discord.ext import commands
 from discord.ext import tasks
