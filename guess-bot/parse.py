@@ -116,7 +116,7 @@ def filter_json(raw_directory,backup_path):
         # Makes a backup of the original raw data
         shutil.copyfile(f"{raw_directory}/{json_file}",f"{backup_path}/{json_file}")
 
-        # Deletes the raw data
+        # # Deletes the raw data
         os.remove(f"{raw_directory}/{json_file}")
 
     # Calculates the time taken to complete filtering
@@ -129,7 +129,7 @@ def filter_json(raw_directory,backup_path):
 def generate_stats(guild_data):
     # We want to generate more general stats
 
-    stats = defaultdict(lambda: copy.copy(DEFAULT_STATS))
+    stats = defaultdict(lambda: copy.deepcopy(DEFAULT_STATS))
 
     guild_messages = guild_data["active_messages"] + guild_data["inactive_messages"]
 

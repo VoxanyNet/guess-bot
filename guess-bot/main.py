@@ -106,17 +106,20 @@ async def gus(ctx):
     await ctx.send("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
 
 @bot.command()
-async def stats(ctx, stat_type, argument = None):
+async def stats(ctx, stat_type, keyword = None, user_id = None):
 
-    user_id = str(ctx.author.id)
+    if user_id == None:
+        user_id = str(ctx.author.id)
+
     guild_id = str(ctx.guild.id)
 
     # Create user stats object
-    user_stats = statistics.User(bot.server_data[guild_id]["stats"][user_id])
+    user_data = bot.server_data[guild_id]["stats"][user_id]
+
+    user_stats = statistics.User(user_data)
 
     match stat_type:
         case "count":
-            keyword = argument
 
             if keyword == None:
                 result = user_stats.message_count()
@@ -124,6 +127,9 @@ async def stats(ctx, stat_type, argument = None):
             else:
                 result = user_stats.word_count(keyword)
 
+        case "top":
+            result = user_stats.top_usage()
+            
         case _:
             result = "Invalid statistic"
 
@@ -252,14 +258,13 @@ async def guess(ctx):
         await prompt_message.add_reaction(emoji)
 
     # Saves the message in the prompts dictionary
-    if guild_id in bot.prompts:
-        bot.prompts[guild_id].append(
-            {
-                "prompt_message": prompt_message,
-                "guess_message": message,
-                "choices": choices
-            }
-        )
+    bot.prompts[guild_id].append(
+        {
+            "prompt_message": prompt_message,
+            "guess_message": message,
+            "choices": choices
+        }
+    )
 
 @bot.command()
 async def debug(ctx):
@@ -281,7 +286,7 @@ async def download_checker():
         # If the download has finished we can filter and load the new data
         # We also notify the channel that the download has finished
         else:
-            filter_json("raw_data",DATA_PATH)
+            parse.filter_json("raw_data",DATA_PATH)
             bot.server_data = load_messages(DATA_PATH)
 
             for guild_id, guild_data in bot.server_data.items():
