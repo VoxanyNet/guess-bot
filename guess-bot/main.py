@@ -73,7 +73,7 @@ parse.filter_json("raw_data",BACKUP_PATH)
 bot = commands.Bot(command_prefix = "!")
 
 bot.server_data = load_messages(DATA_PATH)
-bot.prompts = defaultdictionary(list)
+bot.prompts = defaultdict(list)
 bot.threads = {}
 
 time_start = time.time()
@@ -106,7 +106,7 @@ async def gus(ctx):
     await ctx.send("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
 
 @bot.command()
-async def stats(ctx, stat_type, argument):
+async def stats(ctx, stat_type, argument = None):
 
     user_id = str(ctx.author.id)
     guild_id = str(ctx.guild.id)
@@ -115,10 +115,14 @@ async def stats(ctx, stat_type, argument):
     user_stats = statistics.User(bot.server_data[guild_id]["stats"][user_id])
 
     match stat_type:
-        case "keyword":
+        case "count":
             keyword = argument
 
-            result = user_stats.word_count(keyword)
+            if keyword == None:
+                result = user_stats.message_count()
+
+            else:
+                result = user_stats.word_count(keyword)
 
         case _:
             result = "Invalid statistic"
