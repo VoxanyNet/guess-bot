@@ -271,7 +271,7 @@ async def debug(ctx):
     await ctx.send(f"""**CTX guild ID**: {ctx.guild.id}\n
     **CTX author ID**: {ctx.message.author.id}\n""")
 
-    print(bot.server_data.keys())
+    print(ctx.message.content)
 
 @tasks.loop(seconds = 5)
 async def download_checker():

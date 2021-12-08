@@ -1,6 +1,6 @@
 # This module works to translate the back-end
 # JSON stats to human readable outputs
-
+import math
 class User:
     def __init__(self, user_stats):
         self.user_stats = user_stats
@@ -31,7 +31,19 @@ class User:
 
         result = ""
 
-        for ranking, word in enumerate(word_rankings[:10]):
-            result += f"{ranking + 1}: **{word}**\n"
+        basedness = 0
+        sd = 0
+
+        for ranking, word in enumerate(word_rankings[:30]):
+            # Adds the word and its ranking to the string
+            result += f"{ranking + 1}: **{word}** ({word_usage[word]})\n"
+
+            #sd = actual number of times word is used - (amount of times word #1 is used/word ranking+1)
+            sd = int((word_usage[word] - (word_usage[word_rankings[0]]/(ranking + 1) ))**2)
+
+            basedness += sd
+
+        basedness = str(int(math.sqrt(basedness/30)))
+        result += f"Your Basedness: **{basedness}**"
 
         return result
