@@ -128,8 +128,8 @@ async def stats(ctx, stat_type, keyword = None, user_id = None):
                 result = user_stats.word_count(keyword)
 
         case "top":
-            result = user_stats.top_usage()
-            
+            result = user_stats.top_usage((0,10))
+
         case _:
             result = "Invalid statistic"
 

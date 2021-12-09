@@ -38,28 +38,27 @@ class User:
         result = ""
 
         basedness = 0
-        sd = 0
-
         most_used_word_count = word_usage[word_rankings[0]]
 
         for ranking, word in enumerate(word_rankings[range_floor:range_ceiling]):
+            result += f"{ranking + 1}: **{word}** ({word_usage[word]})\n"
 
             # Estimation calculation
             # (most used word's word count) * 1/(the word we want to estimate's rank)
             # This is a simplified equation
             # https://youtu.be/fCn8zs912OE?t=125
             # This will calculate the estimated usage count based on Zipf's law
-            estimated_word_usage = most_used_word_count / (ranking + 1)
+            estimated_word_usage = (1 / (ranking + 1)) * 100
 
 
             # Calculates the difference between the estimated word usage and the actual word usage
-            estimation_delta = (word_usage[word] - int(estimated_word_usage)) **2
+            estimation_delta = (((word_usage[word] / most_used_word_count)*100) - int(estimated_word_usage)) **2
 
             # Basedness increases as you deviate more from the mean
             basedness += estimation_delta
 
         basedness = int(math.sqrt(basedness/(range_ceiling - range_floor)))
 
-        result += f"Your Basedness: **{basedness}**"
+        result += f"\nBasedness: **{basedness}%**"
 
         return result
