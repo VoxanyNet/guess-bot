@@ -5,6 +5,7 @@ class User:
     def __init__(self, user_stats):
         self.user_stats = user_stats
 
+
     def message_count(self):
         message_count = self.user_stats["message_count"]
 
@@ -24,9 +25,14 @@ class User:
 
         return result
 
-    def top_usage(self):
+    def top_usage(self,range):
+
+        # Unpacks range
+        range_floor, range_ceiling = range
+
         word_usage = self.user_stats["word_usage"]
 
+        # Returns a list of word strings ordered most used -> least used
         word_rankings = sorted(word_usage, key=word_usage.get, reverse=True)
 
         result = ""
@@ -34,16 +40,26 @@ class User:
         basedness = 0
         sd = 0
 
-        for ranking, word in enumerate(word_rankings[:30]):
-            # Adds the word and its ranking to the string
-            result += f"{ranking + 1}: **{word}** ({word_usage[word]})\n"
+        most_used_word_count = word_usage[word_rankings[0]]
 
-            #sd = actual number of times word is used - (amount of times word #1 is used/word ranking+1)
-            sd = int((word_usage[word] - (word_usage[word_rankings[0]]/(ranking + 1) ))**2)
+        for ranking, word in enumerate(word_rankings[range_floor:range_ceiling]):
 
-            basedness += sd
+            # Estimation calculation
+            # (most used word's word count) * 1/(the word we want to estimate's rank)
+            # This is a simplified equation
+            # https://youtu.be/fCn8zs912OE?t=125
+            # This will calculate the estimated usage count based on Zipf's law
+            estimated_word_usage = most_used_word_count / (ranking + 1)
 
-        basedness = str(int(math.sqrt(basedness/30)))
+
+            # Calculates the difference between the estimated word usage and the actual word usage
+            estimation_delta = (word_usage[word] - int(estimated_word_usage)) **2
+
+            # Basedness increases as you deviate more from the mean
+            basedness += estimation_delta
+
+        basedness = int(math.sqrt(basedness/(range_ceiling - range_floor)))
+
         result += f"Your Basedness: **{basedness}**"
 
         return result
