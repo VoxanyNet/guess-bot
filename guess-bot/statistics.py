@@ -1,6 +1,22 @@
 # This module works to translate the back-end
 # JSON stats to human readable outputs
 import math
+
+basedness_conversions = {
+    5: "EXTREMELY CRINGE",
+    10: "Sheep",
+    15: "Moderatly Cringe",
+    20: "Uncringe",
+    30: "Free Thinker",
+    40: "Based",
+    50: "Extremely Based",
+    60: "Dangerously Based",
+    70: "Out of Control",
+    80: "Goofy/Silly",
+    90: "Nationwide Basedness Epidemic",
+    100: "Global Lockdown"
+}
+
 class User:
     def __init__(self, user_stats):
         self.user_stats = user_stats
@@ -40,7 +56,9 @@ class User:
         basedness = 0
         most_used_word_count = word_usage[word_rankings[0]]
 
-        for ranking, word in enumerate(word_rankings[range_floor:range_ceiling]):
+        for word in word_rankings[range_floor:range_ceiling]:
+            ranking = word_rankings.index(word)
+
             result += f"{ranking + 1}: **{word}** ({word_usage[word]})\n"
 
             # Estimation calculation
@@ -60,5 +78,10 @@ class User:
         basedness = int(math.sqrt(basedness/(range_ceiling - range_floor)))
 
         result += f"\nBasedness: **{basedness}%**"
+
+        for maximum_value, conversion in basedness_conversions.items():
+            if basedness < maximum_value:
+                result += f"\nRank: **{conversion}**"
+                break
 
         return result

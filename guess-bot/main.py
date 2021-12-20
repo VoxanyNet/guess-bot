@@ -12,13 +12,85 @@ from discord.ext import tasks
 import statistics
 import parse
 
-# TODO
+# class MessageGui:
+#     def __init__(self,user_id):
+#         self.user_id = user_id
+
+async def reset_reaction(emoji_to_remove, message):
+
+    users_to_remove = []
+
+    # This creates a list of the users who reacted that doesn't include the bot
+    for _reaction in message.reactions:
+        if _reaction.emoji == emoji_to_remove:
+            async for user in _reaction.users():
+                # We only want to remove reactions from other users
+                if user.id != message.author.id:
+                    users_to_remove.append(user)
+
+    for user_id in users_to_remove:
+        await message.remove_reaction(emoji_to_remove,user)
+
+class PageHandler():
+    def __init__(self, owner_id,user_stats,creation_time):
+        self.OWNER_ID = owner_id
+        self.STATS = user_stats
+        self.CREATION_TIME = creation_time
+
+        # The range ceiling defines the highest ranking word we want to retrieve
+        self.range_ceiling = 10
+
+    # This needs to be a seperate method because __init__ doesn't support asyncio
+    async def setup(self,message):
+        # Adds the initial emoji for interfacing
+        for emoji in ["🔼", "🔽"]:
+            await message.add_reaction(emoji)
+
+    async def update(self, reaction, user):
+
+        # If the user who reacted is the bot, we ignore it
+        if user.id == bot.user.id:
+            pass
+
+        # If the user who reacted is not the GUI owner, we ignore it
+        if user.id != self.OWNER_ID:
+            pass
+
+        else:
+
+            match reaction.emoji:
+                case "🔼":
+                    # Lower the range ceiling
+                    self.range_ceiling -= 10
+
+                case "🔽":
+                    # Raise the range ceiling
+                    self.range_ceiling += 10
+
+                # If there are no emojis we have responses for, we do nothing.
+                case _:
+                    return
+
+            # Returns a tuple with the range of results we want. We want 10 results, so we just subtract 10 from the range ceiling
+            lookup_range = (self.range_ceiling - 10, self.range_ceiling)
+
+            result = self.STATS.top_usage(lookup_range)
+
+            #source = inspect.getsource(reaction.message.edit)
+
+            await reaction.message.edit(content = result)
+
+        # Resets all the interaction emojis to one
+        for emoji in ["🔼", "🔽"]:
+            await reset_reaction(emoji,reaction.message)
+
+""" TODO
 
 # Add statistics based on how many guesses you got right
-# Add statistics based on many messages someone sent overall
-# Make message downloading threaded
 # Add points
 # Add bonuses for guessing multiple in a row
+
+"""
 
 def load_messages(data_path):
     server_data = {}
@@ -51,7 +123,7 @@ def download_messages(channel_id,token,output_directory):
 
     print(f"Finished downloading messages for {channel_id}")
 
-BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.28ujyytcdm0wUPfI0D2i-Ucszj0"
+BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.2VT5Bi0a3Xqx4wJ_8hYbM0OmPYA"
 DATA_PATH = "server_data"
 BACKUP_PATH = "raw_data_backup"
 EMOJI_TABLE = [
@@ -74,6 +146,7 @@ bot = commands.Bot(command_prefix = "!")
 
 bot.server_data = load_messages(DATA_PATH)
 bot.prompts = defaultdict(list)
+bot.gui_sessions = {}
 bot.threads = {}
 
 time_start = time.time()
@@ -97,6 +170,7 @@ async def get_user(ctx,user_id):
     name = await bot.fetch_user(int(user_id))
 
     await ctx.send(name)
+
 @bot.command()
 async def guss(ctx):
     await ctx.send("https://static.wikia.nocookie.net/breakingbad/images/a/ab/BCS_S3_GusFringe.jpg/revision/latest?cb=20170327185354")
@@ -127,14 +201,28 @@ async def stats(ctx, stat_type, keyword = None, user_id = None):
             else:
                 result = user_stats.word_count(keyword)
 
+            await ctx.send(result)
+
         case "top":
+            # Create GUI message then add it to dictionary
             result = user_stats.top_usage((0,10))
+
+            message = await ctx.send(result)
+
+            # Creates PageHandler object that will be updated every
+            # time a reaction is added to its corresponding message
+            page_gui = PageHandler(ctx.author.id,user_stats,time.time())
+
+            # This needs to be used because __init__ doesnt support asyncio
+            await page_gui.setup(message)
+
+            # Adds the PageHandler object the dictionary of GUI objects
+            bot.gui_sessions[message.id] = page_gui
 
         case _:
             result = "Invalid statistic"
 
-    await ctx.send(result)
-
+            await ctx.send(result)
 
 @bot.command()
 async def desync(ctx):
@@ -219,7 +307,7 @@ async def guess(ctx):
     message = random.choice(data["active_messages"])
 
     # Add the correct answer to the list of choices
-    choices = [message["author"]["name"]]
+    choices = [message["author"]["id"]]
 
     # We use this to generate wrong answers
     users = data["valid_users"]
@@ -240,6 +328,8 @@ async def guess(ctx):
     # Shuffles the list so the right answer won't always be first
     random.shuffle(choices)
 
+    print(choices)
+
     # We get the emoji that correlates to the correct answer
     # correct_emoji = EMOJI_TABLE[choices.index(message["author"]["name"])]
 
@@ -248,7 +338,7 @@ async def guess(ctx):
 
     for number, choice in enumerate(choices):
         # Converts user ID to the name
-        user = bot.fetch_user(choice)
+        user = await bot.fetch_user(choice)
 
         choices_string += f"{EMOJI_TABLE[number]}: {user.name}\n"
 
@@ -314,7 +404,7 @@ async def prompt_checker():
             guess_message = prompt["guess_message"] # We need all the data about the message they are trying to guess. JSON message object
             choices = prompt["choices"] # List of all possible choices. We use this to convert the numbered reaction to actual username
 
-            correct_choice = choices.index(guess_message["author"]["name"])
+            correct_choice = choices.index(guess_message["author"]["id"])
 
             channel_id = prompt_message.channel.id
             message_id = prompt_message.id
@@ -392,6 +482,19 @@ async def prompt_checker():
 
                 # Deletes the prompt from list of active prompts
                 bot.prompts[guild].remove(prompt)
+
+@bot.event
+async def on_reaction_add(reaction, user):
+
+    message_id = reaction.message.id
+
+    if message_id in bot.gui_sessions:
+
+        gui_session = bot.gui_sessions[message_id]
+        await gui_session.update(reaction,user)
+
+    else:
+        pass
 
 prompt_checker.start()
 download_checker.start()
