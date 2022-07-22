@@ -47,6 +47,7 @@ class PageHandler():
             await message.add_reaction(emoji)
 
     async def update(self, reaction, user):
+        start = time.time()
 
         # If the user who reacted is the bot, we ignore it
         if user.id == bot.user.id:
@@ -83,6 +84,10 @@ class PageHandler():
         # Resets all the interaction emojis to one
         for emoji in ["🔼", "🔽"]:
             await reset_reaction(emoji,reaction.message)
+
+        elapsed = time.time() - start
+
+        #print(f"Took {elapsed} seconds to process GUI input")
 
 """ TODO
 
@@ -123,7 +128,8 @@ def download_messages(channel_id,token,output_directory):
 
     print(f"Finished downloading messages for {channel_id}")
 
-BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.2VT5Bi0a3Xqx4wJ_8hYbM0OmPYA"
+BOT_TOKEN = "ODk5MDQxMzI3MzQwMjA0MDYy.YWs_ew.oAu06rvcR-do88OG96-wcTsAVmA"
+RAW_DATA_PATH = "raw_data"
 DATA_PATH = "server_data"
 BACKUP_PATH = "raw_data_backup"
 EMOJI_TABLE = [
@@ -140,9 +146,11 @@ if os.path.exists("sync_times.json") != True:
     file.close()
 
 # Change this to be more modular
-parse.filter_json("raw_data",BACKUP_PATH)
+parse.filter_json(RAW_DATA_PATH,BACKUP_PATH)
 
-bot = commands.Bot(command_prefix = "!")
+bot = discord.Bot()
+
+bot.debug_guilds = [730614557600383066]
 
 bot.server_data = load_messages(DATA_PATH)
 bot.prompts = defaultdict(list)
@@ -165,21 +173,21 @@ print(f"Took {time_elapsed} seconds to generate stats")
 async def on_ready():
     print("All done!")
 
-@bot.command()
+@bot.slash_command(description="Return user from ID", guild_ids=[730614557600383066])
 async def get_user(ctx,user_id):
     name = await bot.fetch_user(int(user_id))
 
-    await ctx.send(name)
+    await ctx.respond(name)
 
-@bot.command()
+@bot.slash_command(description="Guss", guild_ids=[730614557600383066])
 async def guss(ctx):
-    await ctx.send("https://static.wikia.nocookie.net/breakingbad/images/a/ab/BCS_S3_GusFringe.jpg/revision/latest?cb=20170327185354")
+    await ctx.respond("https://static.wikia.nocookie.net/breakingbad/images/a/ab/BCS_S3_GusFringe.jpg/revision/latest?cb=20170327185354")
 
-@bot.command()
+@bot.slash_command(description="Pollos Hermanos", guild_ids=[730614557600383066])
 async def gus(ctx):
-    await ctx.send("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
+    await ctx.respond("https://cdn.discordapp.com/attachments/769958337474461737/910308645424746506/IMG_0005.jpg")
 
-@bot.command()
+@bot.slash_command(description="Return stats for given user id", guild_ids=[730614557600383066])
 async def stats(ctx, stat_type, keyword = None, user_id = None):
 
     if user_id == None:
@@ -201,13 +209,13 @@ async def stats(ctx, stat_type, keyword = None, user_id = None):
             else:
                 result = user_stats.word_count(keyword)
 
-            await ctx.send(result)
+            await ctx.respond(result)
 
         case "top":
             # Create GUI message then add it to dictionary
             result = user_stats.top_usage((0,10))
 
-            message = await ctx.send(result)
+            message = await ctx.respond(result)
 
             # Creates PageHandler object that will be updated every
             # time a reaction is added to its corresponding message
@@ -222,9 +230,9 @@ async def stats(ctx, stat_type, keyword = None, user_id = None):
         case _:
             result = "Invalid statistic"
 
-            await ctx.send(result)
+            await ctx.respond(result)
 
-@bot.command()
+@bot.slash_command(description="Removes all messages from message repo", guild_ids=[730614557600383066])
 async def desync(ctx):
 
     guild_id = str(ctx.guild.id)
@@ -236,16 +244,16 @@ async def desync(ctx):
         del bot.server_data[guild_id]
 
     except FileNotFoundError:
-        await ctx.send("Could not find any message data for this server")
+        await ctx.respond("Could not find any message data for this server")
 
     except:
-        await ctx.send("Failed to remove message data.\nContact Voxany#4162 for support")
+        await ctx.respond("Failed to remove message data.\nContact Voxany#4162 for support")
         raise
 
     else:
-        await ctx.send("Successfully removed messsage data!")
+        await ctx.respond("Successfully removed messsage data!")
 
-@bot.command()
+@bot.slash_command(description=" Syncs messages from the current channel to the message repo", guild_ids=[730614557600383066])
 async def sync(ctx):
 
     # We need the guild id as a str because json doesnt support int keys
@@ -275,11 +283,11 @@ async def sync(ctx):
 
             converted_time = datetime.timedelta(seconds = time_remaining)
 
-            await ctx.send(f"You must wait 3 days between channel syncing.\nYou may sync again in **{converted_time.days + 1} day(s).**")
+            await ctx.respond(f"You must wait 3 days between channel syncing.\nYou may sync again in **{converted_time.days + 1} day(s).**")
 
             return
 
-    await ctx.send(f"Syncing guess messages with channel <#{ctx.channel.id}>\n**This will take a while!**")
+    await ctx.respond(f"Syncing guess messages with channel <#{ctx.channel.id}>\n**This will take a while!**")
 
     new_thread = threading.Thread(target = download_messages, args = (ctx.channel.id,BOT_TOKEN,"raw_data"), daemon = True)
 
@@ -293,12 +301,12 @@ async def sync(ctx):
     with open("sync_times.json", "w") as file:
         json.dump(sync_data,file)
 
-@bot.command()
+@bot.slash_command(description="Create a message to guess!", guild_ids=[730614557600383066])
 async def guess(ctx):
     guild_id = str(ctx.guild.id)
 
     if guild_id not in bot.server_data:
-        await ctx.send("No message data found! Sync messages with !sync")
+        await ctx.respond("No message data found! Sync messages with !sync")
         return
 
     data = bot.server_data[guild_id]
@@ -342,7 +350,7 @@ async def guess(ctx):
 
         choices_string += f"{EMOJI_TABLE[number]}: {user.name}\n"
 
-    prompt_message = await ctx.send(f"Who sent:\n||Author||: {message['content']}\n\n{choices_string}\n")
+    prompt_message = await ctx.respond(f"Who sent:\n||Author||: {message['content']}\n\n{choices_string}\n")
 
     for emoji in EMOJI_TABLE[:len(choices)]: # We only want to add an emoji for every possible answer. So if there are only 3 possible answers we only get 3 emoji choices
         await prompt_message.add_reaction(emoji)
@@ -356,9 +364,9 @@ async def guess(ctx):
         }
     )
 
-@bot.command()
+@bot.slash_command(description="Debug", guild_ids=[730614557600383066])
 async def debug(ctx):
-    await ctx.send(f"""**CTX guild ID**: {ctx.guild.id}\n
+    await ctx.respond(f"""**CTX guild ID**: {ctx.guild.id}\n
     **CTX author ID**: {ctx.message.author.id}\n""")
 
     print(ctx.message.content)
@@ -376,7 +384,7 @@ async def download_checker():
         # If the download has finished we can filter and load the new data
         # We also notify the channel that the download has finished
         else:
-            parse.filter_json("raw_data",DATA_PATH)
+            parse.filter_json(RAW_DATA_PATH,BACKUP_PATH)
             bot.server_data = load_messages(DATA_PATH)
 
             for guild_id, guild_data in bot.server_data.items():

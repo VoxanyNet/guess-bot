@@ -140,7 +140,7 @@ def generate_stats(guild_data):
         words = message["content"].split()
 
         for word in words:
-            stats[author_id]["word_usage"][word] += 1
+            stats[author_id]["word_usage"][word.lower()] += 1 # Made the stats be all lowercase
 
         # MESSAGE COUNT
         stats[author_id]["message_count"] += 1
